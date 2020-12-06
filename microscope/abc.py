@@ -1243,6 +1243,76 @@ class FilterWheel(Device, metaclass=abc.ABCMeta):
         self.position = position
 
 
+class Lens(Device, metaclass=abc.ABCMeta):
+    """ABC for filter wheels, cube turrets, and filter sliders.
+
+    FilterWheel devices are devices that have specific positions to
+    hold different filters.  Implementations will enable the change to
+    any of those positions, including positions that may not hold a
+    filter.
+
+    Args:
+        positions: total number of filter positions on this device.
+    """
+
+    def __init__(self, positions: int, **kwargs) -> None:
+        super().__init__(**kwargs)
+        if positions < 1:
+            raise ValueError(
+                "positions must be a positive number (was %d)" % positions
+            )
+        self._positions = positions
+        # The position as an integer.
+        # Deprecated: clients should call get_position and set_position;
+        # still exposed as a setting until cockpit uses set_position.
+        self.add_setting(
+            "position",
+            "int",
+            self.get_position,
+            self.set_position,
+            lambda: (0, self.get_num_positions()),
+        )
+
+    @property
+    def n_positions(self) -> int:
+        """Number of lens positions."""
+        return self._positions
+
+    @property
+    def position(self) -> int:
+        """Number of wheel positions (zero-based)."""
+        return self._do_get_position()
+
+    @position.setter
+    def position(self, new_position: int) -> None:
+        if 0 <= new_position < self.n_positions:
+            return self._do_set_position(new_position)
+        else:
+            raise ValueError(
+                "can't move to position %d, limits are [0 %d]"
+                % (new_position, self.n_positions - 1)
+            )
+
+    @abc.abstractmethod
+    def _do_get_position(self) -> int:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _do_set_position(self, position: int) -> None:
+        raise NotImplementedError()
+
+    # Deprecated and kept for backwards compatibility.
+    def get_num_positions(self) -> int:
+        """Deprecated, use the `n_positions` property."""
+        return self.n_positions
+
+    def get_position(self) -> int:
+        return self.position
+
+    def set_position(self, position: int) -> None:
+        self.position = position
+
+
 class Controller(Device, metaclass=abc.ABCMeta):
     """Device that controls multiple devices.
 
