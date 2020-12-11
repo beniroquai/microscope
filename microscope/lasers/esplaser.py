@@ -25,6 +25,7 @@
 import logging
 
 import serial
+import time
 
 import microscope
 import microscope.abc
@@ -51,6 +52,11 @@ const char *CMD_LZ_SOFI_A =  "LZ_SOFI_A";
 '''
 
 class ESPLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
+    delim_strt = "*"
+    delim_stop = "#"
+    delim_cmds = ";"
+    delim_inst = "+"
+
     def __init__(self, com, baud=115200, timeout=0.5, maxpower=100, pwmresolution=2**10, cmdprefix="LAS1", **kwargs) -> None:
         super().__init__(**kwargs)
         self.connection = serial.Serial(
@@ -65,7 +71,6 @@ class ESPLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
         self._max_power_mw = float(maxpower)
         self._cmdprefix = cmdprefix
         self.outBuffer = ""
-        define_protocol()
 
     def __init__(self, connection, maxpower=100, pwmresolution=2**10, cmdprefix="LASERRED", **kwargs) -> None:
         super().__init__(**kwargs)
@@ -76,15 +81,6 @@ class ESPLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
         self._max_power_mw = float(maxpower)
         self._cmdprefix = cmdprefix
         self.outBuffer = ""
-        announce_protocol()
-
-    def announce_protocol():
-        """globally define string parameters for serial communication"""
-        self.max_msg_len = 32
-        self.delim_strt = "*"
-        self.delim_stop = "#"
-        self.delim_cmds = ";"
-        self.delim_inst = "+"
 
     def isEmpty(self, byte_list):
         if (byte_list):
@@ -100,6 +96,7 @@ class ESPLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
             print("Printing Buffer: "+self.outBuffer)
             self.outBuffer = [ord(x) for x in self.outBuffer]
             self._write(self.outBuffer)
+            time.sleep(.001)
             self.outBuffer = "" # reset
         except Exception as e:
             print("Unknown error {0} occured on send to address {1}".format(
@@ -109,7 +106,7 @@ class ESPLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
     def extractCommand(self, args):
         """Decode received Command"""
         cmd = ""
-        delim = SerialDevice.delim_inst
+        delim = self.delim_inst
         for i, arg in enumerate(args):
             if type(arg) == list:
                 sep = [str(x) for x in arg]
@@ -123,7 +120,7 @@ class ESPLaser(microscope.abc.SerialDeviceMixin, microscope.abc.LightSource):
     def send(self, *args):
         cmd = self.extractCommand(args)
         print("Sending:   {0}".format(cmd))
-        logger.info("Sending:   {0}".format(cmd))
+        _logger.info("Sending:   {0}".format(cmd))
         self.sendEvent(cmd)
 
     def request(self):
